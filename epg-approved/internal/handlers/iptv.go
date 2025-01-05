@@ -8,7 +8,7 @@ import (
 	"github.com/gustav1105/epg_approved/internal/api"
   "net/http"
   "bytes"
-  "sync"
+  "time"
 )
 
 // IPTVHandler handles operations related to IPTV
@@ -47,97 +47,66 @@ func NewIPTVHandler(client *api.IPTVClient, xmltv, vodCategories, vodStreams, vo
 	}
 }
 
-// UpdateVOD orchestrates the fetching of VOD data using channels
 func (h *IPTVHandler) UpdateVOD() error {
-	fmt.Println("Starting VOD update process...")
+  fmt.Println("Starting VOD update process...")
 
-	// Fetch VOD categories
-	categories, err := h.fetchVODCategories()
-	if err != nil {
-		return fmt.Errorf("error fetching VOD categories: %w", err)
-	}
+  // Fetch VOD categories
+  categories, err := h.fetchVODCategories()
+  if err != nil {
+    return fmt.Errorf("error fetching VOD categories: %w", err)
+  }
 
-	// Create a channel for category processing
-	categoryChan := make(chan CategoryResult)
+  // Process each category sequentially
+  for _, category := range categories {
+    // Validate and extract category_id
+    categoryID, ok := category["category_id"].(string)
+    if !ok {
+      fmt.Printf("Invalid category_id format; skipping category: %v\n", category)
+      continue
+    }
 
-	// Use a WaitGroup to manage parallel processing
-	var wg sync.WaitGroup
+    // Fetch streams for the category
+    streams, err := h.fetchVODStreams(categoryID)
+    if err != nil {
+      fmt.Printf("Error fetching streams for category ID %s: %v\n", categoryID, err)
+      continue
+    }
 
-	// Process each category
-	for _, category := range categories {
-		categoryID, ok := category["category_id"].(string)
-		if !ok {
-			fmt.Println("Invalid category_id format; skipping category")
-			continue
-		}
-		categoryName, ok := category["category_name"].(string)
-		if !ok {
-			fmt.Println("Invalid category_name format; skipping category")
-			continue
-		}
+    // Process each stream
+    for _, stream := range streams {
+      var vodID string
+      switch id := stream["stream_id"].(type) {
+      case string:
+        vodID = id
+      case float64:
+        vodID = fmt.Sprintf("%.0f", id)
+      default:
+        fmt.Printf("Invalid stream_id format; skipping stream: %v\n", stream)
+        continue
+      }
 
-		wg.Add(1)
-		go func(categoryID, categoryName string) {
-			defer wg.Done()
+      // Fetch VOD info
+      info, err := h.fetchVODInfo(vodID)
+      if err != nil {
+        fmt.Printf("Error fetching info for VOD %s: %v\n", vodID, err)
+        continue
+      }
 
-			// Fetch streams for the category
-			streams, err := h.fetchVODStreams(categoryID)
-			if err != nil {
-				categoryChan <- CategoryResult{CategoryID: categoryID, CategoryName: categoryName, Error: err}
-				return
-			}
+      // Send VOD info to embed API
+      err = h.AddVODInfo([]map[string]interface{}{info})
+      if err != nil {
+        fmt.Printf("Error sending VOD Info for VOD %s: %v\n", vodID, err)
+      } else {
+        fmt.Printf("Successfully sent data for VOD %s to Search service.\n", vodID)
+      }
+    }
 
-			// Process each stream
-			for _, stream := range streams {
-				var vodID string
-				switch id := stream["stream_id"].(type) {
-				case string:
-					vodID = id
-				case float64:
-					vodID = fmt.Sprintf("%.0f", id)
-				default:
-					fmt.Println("Invalid stream_id format; skipping stream")
-					continue
-				}
+    // Log category processing success
+    fmt.Printf("Successfully processed category ID %s\n", categoryID)
+  }
 
-				// Fetch VOD info
-				info, err := h.fetchVODInfo(vodID)
-				if err != nil {
-					fmt.Printf("Error fetching info for VOD %s: %v\n", vodID, err)
-					continue
-				}
-
-				// Send VOD info to embed API
-				err = h.AddVODInfo([]map[string]interface{}{info})
-				if err != nil {
-					fmt.Printf("Error sending VOD Info for VOD %s: %v\n", vodID, err)
-				} else {
-					fmt.Printf("Successfully sent data for VOD %s to Search service.\n", vodID)
-				}
-			}
-
-			// Send success result to the channel
-			categoryChan <- CategoryResult{CategoryID: categoryID, CategoryName: categoryName, Error: nil}
-		}(categoryID, categoryName)
-	}
-
-	// Close the channel after all goroutines complete
-	go func() {
-		wg.Wait()
-		close(categoryChan)
-	}()
-
-	// Collect results
-	for result := range categoryChan {
-		if result.Error != nil {
-			fmt.Printf("Error processing category %s (%s): %v\n", result.CategoryName, result.CategoryID, result.Error)
-		} else {
-			fmt.Printf("Successfully processed category %s (%s)\n", result.CategoryName, result.CategoryID)
-		}
-	}
-
-	fmt.Println("VOD update process completed successfully.")
-	return nil
+  fmt.Println("VOD update process completed successfully.")
+  return nil
 }
 
 // fetchVODCategories fetches VOD categories from the server
@@ -161,30 +130,54 @@ func (h *IPTVHandler) fetchVODCategories() ([]map[string]interface{}, error) {
   return categories, nil
 }
 
-// fetchVODStreams fetches VOD streams for a specific category
 func (h *IPTVHandler) fetchVODStreams(categoryID string) ([]map[string]interface{}, error) {
   url := fmt.Sprintf("%s/%s&category_id=%s&username=%s&password=%s", h.Client.BaseURL, h.VODStreams, categoryID, h.Client.Username, h.Client.Password)
 
-  resp, err := h.Client.HTTPClient.Get(url)
-  if err != nil {
-    return nil, fmt.Errorf("failed to fetch VOD streams for category ID %s: %w", categoryID, err)
-  }
-  defer resp.Body.Close()
-
-  body, err := ioutil.ReadAll(resp.Body)
-  if err != nil {
-    return nil, fmt.Errorf("failed to read response body: %w", err)
-  }
-
   var streams []map[string]interface{}
-  if err := json.Unmarshal(body, &streams); err != nil {
-    return nil, fmt.Errorf("failed to parse streams: %w", err)
+  var err error
+
+  for retries := 0; retries < 3; retries++ {
+    resp, fetchErr := h.Client.HTTPClient.Get(url)
+    if fetchErr != nil {
+      err = fmt.Errorf("failed to fetch VOD streams for category ID %s: %w", categoryID, fetchErr)
+      fmt.Printf("Retry %d: Error fetching streams for category ID %s: %v\n", retries+1, categoryID, err)
+      time.Sleep(3 * time.Second)
+      continue
+    }
+    defer resp.Body.Close()
+
+    body, readErr := ioutil.ReadAll(resp.Body)
+    if readErr != nil {
+      err = fmt.Errorf("failed to read response body for category ID %s: %w", categoryID, readErr)
+      fmt.Printf("Retry %d: Error reading response body for category ID %s: %v\n", retries+1, categoryID, err)
+      time.Sleep(3 * time.Second)
+      continue
+    }
+
+    if resp.StatusCode != http.StatusOK {
+      err = fmt.Errorf("unexpected HTTP status %d for category ID %s: %s", resp.StatusCode, categoryID, string(body))
+      fmt.Printf("Retry %d: Unexpected HTTP status for category ID %s: %v\n", retries+1, categoryID, err)
+      time.Sleep(3 * time.Second)
+      continue
+    }
+
+    parseErr := json.Unmarshal(body, &streams)
+    if parseErr != nil {
+      err = fmt.Errorf("failed to parse streams for category ID %s: %w", categoryID, parseErr)
+      fmt.Printf("Retry %d: Error parsing streams for category ID %s: %v\n", retries+1, categoryID, err)
+      time.Sleep(3 * time.Second)
+      continue
+    }
+
+    // If successful, return the parsed streams
+    return streams, nil
   }
 
-  return streams, nil
+  // If all retries fail, return the last error
+  return nil, fmt.Errorf("failed to fetch VOD streams for category ID %s after 3 retries: %w", categoryID, err)
 }
 
-// fetchVODInfo fetches detailed VOD info for a specific stream
+
 func (h *IPTVHandler) fetchVODInfo(vodID string) (map[string]interface{}, error) {
   url := fmt.Sprintf("%s/%s&vod_id=%s&username=%s&password=%s", h.Client.BaseURL, h.VODInfo, vodID, h.Client.Username, h.Client.Password)
 
@@ -199,12 +192,22 @@ func (h *IPTVHandler) fetchVODInfo(vodID string) (map[string]interface{}, error)
     return nil, fmt.Errorf("failed to read response body: %w", err)
   }
 
+  if resp.StatusCode != http.StatusOK {
+    // Log response body to debug unexpected status codes
+    fmt.Printf("Unexpected HTTP status for VOD ID %s: %d. Response: %s\n", vodID, resp.StatusCode, string(body))
+    return nil, fmt.Errorf("unexpected HTTP status %d for VOD ID %s", resp.StatusCode, vodID)
+  }
+
   var info map[string]interface{}
   if err := json.Unmarshal(body, &info); err != nil {
+    // Log raw body for debugging invalid JSON
+    fmt.Printf("Failed to parse VOD info for ID %s. Response: %s\n", vodID, string(body))
     return nil, fmt.Errorf("failed to parse VOD info: %w", err)
   }
+
   return info, nil
 }
+
 
 func (h *IPTVHandler) Embed(sentences []string) error {
   url := fmt.Sprintf("%s/%s", h.Client.SearchURL, h.AddVod)
@@ -256,6 +259,7 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
     rating := fmt.Sprintf("%v", info["rating"]) // Convert numeric ratings to string
     director, _ := info["director"].(string)
     cast, _ := info["cast"].(string)
+    movie_image, _ := info["movie_image"].(string)
 
     // Add metadata for retrieval
     vodData = append(vodData, map[string]interface{}{
@@ -267,6 +271,7 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
       "rating":       rating,
       "director":     director,
       "cast":         cast,
+      "movie_image":  movie_image,
     })
   }
 
@@ -278,7 +283,8 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
     return fmt.Errorf("failed to marshal request payload: %w", err)
   }
 
-  fmt.Printf("Payload: %s\n", string(payload))
+  //DEBUG:
+  //fmt.Printf("Payload: %s\n", string(payload))
 
   // Send to embed API
   url := fmt.Sprintf("%s/add", h.Client.SearchURL)
@@ -293,7 +299,7 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
     return fmt.Errorf("non-OK HTTP status: %s, response: %s", resp.Status, string(body))
   }
 
-  fmt.Println("Successfully sent metadata to embed API.")
+  //fmt.Println("Successfully sent metadata to embed API.")
   return nil
 }
 
