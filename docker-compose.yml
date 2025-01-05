@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  iptv-search:
+    build:
+      context: ./iptv-search
+      dockerfile: Dockerfile
+    container_name: iptv-search
+    ports:
+      - "8000:8000"
+    networks:
+      - app-network
+    volumes:
+      - huggingface-cache:/app/huggingface  # Mount volume for Hugging Face cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 120s
+
+  epg-approved:
+    build:
+      context: .
+      dockerfile: epg-approved/Dockerfile
+    container_name: epg-approved
+    volumes:
+      - ./epg-approved/config.toml:/app/config.toml
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    depends_on:
+      - iptv-search
+    entrypoint: ["./wait-for-it.sh", "iptv-search:8000", "--", "./epg-approved", "update", "vod"]
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  huggingface-cache:
+
