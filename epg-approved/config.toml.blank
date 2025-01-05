@@ -1,0 +1,19 @@
+[service]
+base_url = "http://iptv-url"
+username = ""
+password = ""
+search_url = "http://iptv-search:8000"
+[endpoints]
+xmltv = "xmltv.php"
+vod_categories = "player_api.php?action=get_vod_categories"
+vod_streams = "player_api.php?action=get_vod_streams"
+vod_info = "player_api.php?action=get_vod_info"
+add_vod = "add"
+query_vods = "query"
+
+[logging]
+level = "info"      # Options: debug, info, warn, error
+output = "stdout"   # Options: stdout, file
+
+[performance]
+timeout_seconds = 10  # HTTP timeout
