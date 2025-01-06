@@ -26,13 +26,6 @@ app.add_middleware(
 model = None
 index_map = {}  # Store FAISS indices by property
 metadata_map = {}  # Store metadata by property
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Serve the HTML file
-@app.get("/")
-async def read_index():
-    return FileResponse("static/index.html")
 
 @app.on_event("startup")
 async def load_model_and_initialize():
