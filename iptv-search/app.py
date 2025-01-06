@@ -69,9 +69,6 @@ async def add_embeddings(request: Request):
     try:
         # Log the received payload
         raw_body = await request.body()
-        #logger.debug("Received payload: %s", raw_body.decode("utf-8"))
-
-        # Parse the JSON body
         data = json.loads(raw_body)
         items = data.get("metadata", [])
         
@@ -80,19 +77,26 @@ async def add_embeddings(request: Request):
             return JSONResponse({"status": "error", "message": "No metadata provided"}, status_code=400)
         
         for item in items:
+            metadata_entry = {}  # A dictionary to store all metadata properties
+            
             for prop, value in item.items():
+                metadata_entry[prop] = value  # Include all properties in metadata
+                
+                # Generate embeddings only for properties in index_map
                 if prop in index_map and isinstance(value, str):
-                    # Generate embeddings for the property
                     embedding = model.encode([value])[0]
                     index_map[prop].add(np.array([embedding], dtype=np.float32))
-                    metadata_map[prop].append(item)  # Store entire item for metadata lookup
-        
-        #logger.info("Added %d items to FAISS indices.", len(items))
+            
+            # Store the entire metadata entry
+            for prop in index_map.keys():  # Ensure metadata_map stores entries under existing properties
+                if prop in item:
+                    metadata_map[prop].append(metadata_entry)
+
+        logger.info(f"Added {len(items)} items to FAISS indices.")
         return {"status": "success", "added": len(items)}
     except Exception as e:
         logger.error("Error in /add endpoint: %s", e, exc_info=True)
         return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
-
 
 @app.post("/query")
 async def query_embeddings(request: Request):

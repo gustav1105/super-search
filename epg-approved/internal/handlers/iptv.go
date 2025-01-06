@@ -131,52 +131,54 @@ func (h *IPTVHandler) fetchVODCategories() ([]map[string]interface{}, error) {
 }
 
 func (h *IPTVHandler) fetchVODStreams(categoryID string) ([]map[string]interface{}, error) {
-  url := fmt.Sprintf("%s/%s&category_id=%s&username=%s&password=%s", h.Client.BaseURL, h.VODStreams, categoryID, h.Client.Username, h.Client.Password)
+	url := fmt.Sprintf("%s/%s&category_id=%s&username=%s&password=%s",
+		h.Client.BaseURL, h.VODStreams, categoryID, h.Client.Username, h.Client.Password)
 
-  var streams []map[string]interface{}
-  var err error
+	var streams []map[string]interface{}
+	retryAttempts := 3
+	retryDelay := 3 * time.Second // Configurable delay between retries
 
-  for retries := 0; retries < 3; retries++ {
-    resp, fetchErr := h.Client.HTTPClient.Get(url)
-    if fetchErr != nil {
-      err = fmt.Errorf("failed to fetch VOD streams for category ID %s: %w", categoryID, fetchErr)
-      fmt.Printf("Retry %d: Error fetching streams for category ID %s: %v\n", retries+1, categoryID, err)
-      time.Sleep(3 * time.Second)
-      continue
-    }
-    defer resp.Body.Close()
+	for retries := 0; retries < retryAttempts; retries++ {
+		// Attempt the HTTP GET request
+		resp, err := h.Client.HTTPClient.Get(url)
+		if err != nil {
+			fmt.Printf("Attempt %d/%d: Failed to fetch streams for category ID %s: %v\n", retries+1, retryAttempts, categoryID, err)
+			if retries < retryAttempts-1 {
+				time.Sleep(retryDelay)
+			}
+			continue
+		}
 
-    body, readErr := ioutil.ReadAll(resp.Body)
-    if readErr != nil {
-      err = fmt.Errorf("failed to read response body for category ID %s: %w", categoryID, readErr)
-      fmt.Printf("Retry %d: Error reading response body for category ID %s: %v\n", retries+1, categoryID, err)
-      time.Sleep(3 * time.Second)
-      continue
-    }
+		// Ensure response body is closed
+		defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-      err = fmt.Errorf("unexpected HTTP status %d for category ID %s: %s", resp.StatusCode, categoryID, string(body))
-      fmt.Printf("Retry %d: Unexpected HTTP status for category ID %s: %v\n", retries+1, categoryID, err)
-      time.Sleep(3 * time.Second)
-      continue
-    }
+		// Check HTTP status code
+		if resp.StatusCode != http.StatusOK {
+			body, _ := ioutil.ReadAll(resp.Body)
+			fmt.Printf("Attempt %d/%d: Received HTTP %d for category ID %s: %s\n",
+				retries+1, retryAttempts, resp.StatusCode, categoryID, string(body))
+			if retries < retryAttempts-1 {
+				time.Sleep(retryDelay)
+			}
+			continue
+		}
 
-    parseErr := json.Unmarshal(body, &streams)
-    if parseErr != nil {
-      err = fmt.Errorf("failed to parse streams for category ID %s: %w", categoryID, parseErr)
-      fmt.Printf("Retry %d: Error parsing streams for category ID %s: %v\n", retries+1, categoryID, err)
-      time.Sleep(3 * time.Second)
-      continue
-    }
+		// Decode the response body
+		if err := json.NewDecoder(resp.Body).Decode(&streams); err != nil {
+			fmt.Printf("Attempt %d/%d: Failed to parse response for category ID %s: %v\n", retries+1, retryAttempts, categoryID, err)
+			if retries < retryAttempts-1 {
+				time.Sleep(retryDelay)
+			}
+			continue
+		}
 
-    // If successful, return the parsed streams
-    return streams, nil
-  }
+		// Success: return the parsed streams
+		return streams, nil
+	}
 
-  // If all retries fail, return the last error
-  return nil, fmt.Errorf("failed to fetch VOD streams for category ID %s after 3 retries: %w", categoryID, err)
+	// All retries failed
+	return nil, fmt.Errorf("failed to fetch VOD streams for category ID %s after %d attempts", categoryID, retryAttempts)
 }
-
 
 func (h *IPTVHandler) fetchVODInfo(vodID string) (map[string]interface{}, error) {
   url := fmt.Sprintf("%s/%s&vod_id=%s&username=%s&password=%s", h.Client.BaseURL, h.VODInfo, vodID, h.Client.Username, h.Client.Password)
@@ -208,30 +210,6 @@ func (h *IPTVHandler) fetchVODInfo(vodID string) (map[string]interface{}, error)
   return info, nil
 }
 
-
-func (h *IPTVHandler) Embed(sentences []string) error {
-  url := fmt.Sprintf("%s/%s", h.Client.SearchURL, h.AddVod)
-
-  payload, err := json.Marshal(map[string]interface{}{
-    "sentences": sentences,
-  })
-  if err != nil {
-    return fmt.Errorf("failed to marshal request payload: %w", err)
-  }
-
-  resp, err := h.Client.HTTPClient.Post(url, "application/json", bytes.NewBuffer(payload))
-  if err != nil {
-    return fmt.Errorf("failed to send request to embed API: %w", err)
-  }
-  defer resp.Body.Close()
-
-  if resp.StatusCode != http.StatusOK {
-    return fmt.Errorf("non-OK HTTP status: %s", resp.Status)
-  }
-
-  return nil
-}
-
 func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
   var vodData []map[string]interface{}
 
@@ -260,6 +238,8 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
     director, _ := info["director"].(string)
     cast, _ := info["cast"].(string)
     movie_image, _ := info["movie_image"].(string)
+    youtube_trailer, _ := info["youtube_trailer"].(string)
+    tmdb_id, _ := info["tmdb_id"].(string)
 
     // Add metadata for retrieval
     vodData = append(vodData, map[string]interface{}{
@@ -272,6 +252,8 @@ func (h *IPTVHandler) AddVODInfo(vodInfos []map[string]interface{}) error {
       "director":     director,
       "cast":         cast,
       "movie_image":  movie_image,
+      "youtube_trailer": youtube_trailer,
+      "tmbd_id":       tmdb_id,
     })
   }
 
