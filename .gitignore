@@ -1,3 +1,4 @@
 config.toml
 iptv-search/backups/
-player-ui/web/node-modules/
+player-ui/web/node_modules/
+player-ui/web/dist/
