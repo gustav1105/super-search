@@ -11,7 +11,7 @@ services:
     networks:
       - app-network
     volumes:
-      - huggingface-cache:/app/huggingface  # Mount volume for Hugging Face cache
+      - huggingface-cache:/app/huggingface
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -32,7 +32,7 @@ services:
       - app-network
     depends_on:
       - iptv-search
-    entrypoint: ["./wait-for-it.sh", "iptv-search:8000", "--", "./epg-approved", "update", "vod"]
+    entrypoint: ["./wait-for-it.sh", "iptv-search:8000", "--", "./epg-approved"]
 
 networks:
   app-network:

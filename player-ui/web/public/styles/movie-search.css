@@ -1,0 +1,63 @@
+#searchForm {
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#searchForm label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #FFF;
+}
+
+#searchForm input[type="text"],
+#searchForm select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 14px;
+  color: #FFF;
+}
+#searchForm button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007BFF;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#searchForm button:hover {
+  background-color: #0056b3;
+}
+#gridContainer {
+
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 equal columns */
+grid-row-gap: 32px; /* Vertical gap */
+grid-column-gap: 32px;
+  padding: 16px;
+
+}
+div:focus {
+  border-radius: 8px;
+  outline: 5px solid rgba(173, 216, 230, 0.8); /* Light blue with subtle opacity */
+}
+body {
+  background-color: rgba(0, 0, 0, 0.85);
+}
+select {
+    background-color: black; /* Black background */
+    color: white; /* White text */
+}
+input[type="text"] {
+    background-color: black; /* Black background */
+    color: white;
+}

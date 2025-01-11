@@ -1,0 +1,60 @@
+.movie-card {
+    overflow: hidden;
+    display: flex; /* Use Flexbox for layout */
+    justify-content: space-between; /* Push children to edges */
+    align-items: flex-start; /* Align children at the top */
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-size: cover;
+  min-height: 500px;
+position: relative;
+}
+
+.movie-card .card-content {
+    padding-left: 10px;
+    margin-top: auto;
+    padding-right: 12px;
+    background-color: rgba(0, 0, 0, 0.7);
+    width: 100%;
+}
+
+.movie-card .iframe-container {
+    width: 500px; /* Set fixed width */
+    height: 98%;
+    position: relative;
+    display: flex; /* Ensures proper alignment and content adjustment */
+    align-items: stretch;
+    margin: 2px;
+    min-width: 600px;
+}
+
+.movie-card .iframe-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Make iframe fill the container */
+    height: 100%;
+    border: 0;
+}
+
+.movie-card h3 {
+    margin: 0 0 8px;
+    color: #FFF
+}
+
+.movie-card .stars-container {
+    margin: 8px 0;
+    font-size: 18px;
+    color: gold;
+}
+
+.movie-card p {
+    margin: 4px 0;
+    font-size: 14px;
+color: #FFF
+}
+.movie-card:focus {
+  transform: scale(1.05); /* Slightly enlarge the card */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); /* Add a shadow for emphasis */
+}

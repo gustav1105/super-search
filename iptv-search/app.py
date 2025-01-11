@@ -6,7 +6,7 @@ import numpy as np
 import logging
 import json
 from fastapi.responses import JSONResponse
-
+import os
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -41,12 +41,29 @@ async def load_model_and_initialize():
         ]
         d = 384  # Embedding dimension
         
-        # Initialize FAISS indices and metadata storage
-        for prop in properties:
-            index_map[prop] = faiss.IndexFlatL2(d)
-            metadata_map[prop] = []
+        # Check if backups exist
+        metadata_path = "/app/backups/metadata.json"
+        index_map = {}
+        metadata_map = {}
+        if os.path.exists(metadata_path):
+            logger.info("Loading metadata from backup...")
+            with open(metadata_path, "r") as f:
+                metadata_map = json.load(f)
+        else:
+            metadata_map = {prop: [] for prop in properties}
         
-        logger.info("Model and FAISS indices initialized successfully.")
+        for prop in properties:
+            index_path = f"/app/backups/faiss_{prop}.index"
+            if os.path.exists(index_path):
+                logger.info(f"Loading FAISS index for property '{prop}' from backup...")
+                index_map[prop] = faiss.read_index(index_path)
+            else:
+                logger.info(f"Creating new FAISS index for property '{prop}'...")
+                index_map[prop] = faiss.IndexFlatL2(d)
+                if prop not in metadata_map:
+                    metadata_map[prop] = []
+        
+        logger.info("Model, FAISS indices, and metadata initialized successfully.")
     except Exception as e:
         logger.error(f"Error during startup: {e}")
         raise e

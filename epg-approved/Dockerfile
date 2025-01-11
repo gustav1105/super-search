@@ -42,5 +42,5 @@ EXPOSE 8080
 
 # Command to run the application with wait-for-it.sh
 ENTRYPOINT ["/app/wait-for-it.sh", "iptv-search:8000", "--"]
-CMD ["./epg-approved", "update", "vod"]
+CMD ["./epg-approved"]
 

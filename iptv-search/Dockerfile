@@ -20,7 +20,6 @@ RUN python -c "from transformers import AutoModelForSequenceClassification, Auto
 
 # Copy the rest of the application code
 COPY . .
-
 # Expose the application port
 EXPOSE 8000
 
