@@ -17,8 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
     gridContainer.style.maxHeight = `${window.innerHeight}px`;
 
     const searchForm = createSearchForm();
+    app.appendChild(searchForm);
     app.appendChild(gridContainer);
-    gridContainer.appendChild(searchForm);
+
     const inputField = searchForm.querySelector("input");
     if (inputField) {
       inputField.focus();
@@ -93,11 +94,6 @@ function setCardFocus(focusedCard, gridContainer) {
     plotElement.style.display = "block";
   }
 
-  const tmdbElement = focusedCard.querySelector('.tmdb');
-  if (tmdbElement) {
-    tmdbElement.style.display = "block";
-  }
-
   const genreElement = focusedCard.querySelector('.genre');
   if (genreElement) {
     genreElement.style.display = "block";
@@ -113,6 +109,7 @@ function setCardFocus(focusedCard, gridContainer) {
 
   const content = focusedCard.querySelector('.card-content');
   const youtubeTrailerElement = focusedCard.querySelector('.youtube');
+
   if(youtubeTrailerElement) {
     youtubeTrailerElement.style.display = 'block'
     const cardBackground = window.getComputedStyle(focusedCard).backgroundImage;
@@ -134,28 +131,32 @@ function setCardFocus(focusedCard, gridContainer) {
     cardContent.style.backgroundColor = "transparent";
   }
 
+  const cardMenu = focusedCard.querySelector('.menu');
+  if(cardMenu) {
+    cardMenu.style.display = "flex";
+  }
+
   focusedCard.style.backgroundImage = "";
-  const backToSearch = focusedCard.querySelector('.back');
-  backToSearch.style.display = "flex";
   // Reset other cards
   gridItems.forEach((item) => {
     if (item !== focusedCard) {
-      const itemSearch = item.querySelector('.back');
-      if(itemSearch) {
-        itemSearch.style.display = "none";
+      const itemMenu = item.querySelector('.menu');
+      if(itemMenu) {
+        itemMenu.style.display = "none";
       }
+
       const itemContent = item.querySelector('.card-content');
       if(itemContent) {
         itemContent.style.marginTop = "auto";
         itemContent.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
       }
+
       item.style.backgroundImage = item.dataset.url;
       item.style.gridColumn = "auto";
       item.style.boxShadow  = "0 4px 8px rgba(0, 0, 0, 0.1)";
       item.style.border = "1px solid #ccc";
       item.style.borderRadius = "8px";
 
-      // Hide plot and tmdb elements
       const itemCast = item.querySelector('.cast');
       if (itemCast) {
         itemCast.style.display = "none";
@@ -168,11 +169,6 @@ function setCardFocus(focusedCard, gridContainer) {
       const itemPlot = item.querySelector('.plot');
       if (itemPlot) {
         itemPlot.style.display = "none";
-      }
-
-      const itemTmdb = item.querySelector('.tmdb');
-      if (itemTmdb) {
-        itemTmdb.style.display = "none";
       }
 
       const itemYoutube = item.querySelector('.youtube');

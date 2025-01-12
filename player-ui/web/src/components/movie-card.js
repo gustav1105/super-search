@@ -23,7 +23,6 @@ function createCardContent(movie) {
   const genre = createInfoElement('p', 'Genre:', movie.genre);
   const releaseDate = createInfoElement('p', 'Release Date:', movie.release_date);
   const plot = createInfoElement('p', 'Plot:', movie.plot);
-  const tmbd = createInfoElement('p', 'TMDB:', movie.tmbd_id);
   content.appendChild(title);
   content.appendChild(rating);
   cast.style.display = 'none';
@@ -41,9 +40,9 @@ function createCardContent(movie) {
   plot.style.display = 'none';
   plot.classList.add('plot')
   content.appendChild(plot);
-  tmbd.style.display = 'none';
-  tmbd.classList.add('tmdb')
-  content.appendChild(tmbd);
+
+  const menu = createCardMenuLayout(movie.tmdb_id);
+  content.appendChild(menu);
   return content;
 }
 
@@ -80,8 +79,6 @@ export function createCard(movie) {
   const youtubeFrame = createYoutubeFrame(movie.youtube_trailer);
   card.appendChild(youtubeFrame);
 
-  const backToSearchButton = createBackToSearchFormButton();
-  card.appendChild(backToSearchButton);
 
   card.setAttribute('tabindex', '0');
   return card;
@@ -96,31 +93,93 @@ function createInfoElement(tag, label, value, className = '') {
   return element;
 }
 
-function createBackToSearchFormButton() {
-  const button = document.createElement("button"); // Properly initialize the button
-  button.textContent = "🔍"; // Set button text
-  button.id = "backToSearchFormButton"; // Optional: Assign an ID
-  button.style.width = "56px";
-  button.style.height = "56px";
+function createCardMenuLayout(tmdbId) {
+  const menu = document.createElement('div');
+  menu.classList.add("menu");
+
+  const backToSearchButton = createBackToSearchFormButton();
+  const playButton = createPlayButton();
+  const infoButton = createInfoButton(tmdbId);
+  menu.appendChild(backToSearchButton);
+  menu.appendChild(infoButton);
+  menu.appendChild(playButton);
+
+  return menu;
+}
+
+function createPlayButton() {
+  const button = document.createElement("button");
+  button.id = "playButton";
   button.style.borderRadius = "50%";
   button.style.border = "none";
-  button.style.fontSize = "24px";
   button.style.cursor = "pointer";
-  button.style.justifyContent = "center";
-  button.style.alignItems = "center";
-  button.style.position = "absolute";
-  button.style.left = "10px";
-  button.style.bottom = "20px";
   button.style.backgroundColor = "transparent";
-  button.style.display = 'none';
-  button.classList.add("back");
+  button.style.display ="flex";
+  button.classList.add("play");
+  button.setAttribute('tabindex', 0);
 
-  // Add a click event listener
+  const icon = document.createElement("i");
+  icon.className = "material-icons";
+  icon.textContent = "play_arrow";
+  icon.style.fontSize ="42px";
+  icon.style.color = "white";
+
+  button.appendChild(icon); 
+  button.addEventListener("click", () => {
+  });
+
+  return button; 
+}
+
+function createBackToSearchFormButton() {
+  const button = document.createElement("button");
+  button.id = "backToSearchFormButton";
+  button.style.borderRadius = "50%";
+  button.style.border = "none";
+  button.style.cursor = "pointer";
+  button.style.backgroundColor = "transparent";
+  button.style.display ="flex";
+  button.classList.add("back");
+  button.setAttribute('tabindex', 0);
+ 
+  const icon = document.createElement("i");
+  icon.className = "material-icons";
+  icon.textContent = "search";
+  icon.style.fontSize ="42px";
+  icon.style.color = "white";
+  
+  button.appendChild(icon); 
   button.addEventListener("click", () => {
     const searchInput = document.getElementById("searchForm");
     if (searchInput) {
       searchInput.focus(); // Focus the search input
     }
+  });
+
+  return button; // Return the button element
+}
+
+function createInfoButton(tmdbId) {
+  const button = document.createElement("button");
+  button.id = "infoButton";
+  button.style.borderRadius = "50%";
+  button.style.border = "none";
+  button.style.cursor = "pointer";
+  button.style.backgroundColor = "transparent";
+  button.style.display ="flex";
+  button.classList.add("back");
+  button.setAttribute('tabindex', 0);
+  button.dataset.tmdbId = tmdbId;
+ 
+  const icon = document.createElement("i");
+  icon.className = "material-icons";
+  icon.textContent = "info";
+  icon.style.fontSize ="42px";
+  icon.style.color = "white";
+  
+  button.appendChild(icon); 
+  button.addEventListener("click", () => {
+
   });
 
   return button; // Return the button element

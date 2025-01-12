@@ -52,7 +52,6 @@ export function createSearchForm() {
   submitButton.type = "submit";
   submitButton.textContent = "Search";
   form.appendChild(submitButton);
-
   return form;
 }
 
@@ -67,13 +66,7 @@ export function submitSearchForm (gridContainer) {
     const query = queryInput.value;
     const property = propertySelect.value;
 
-    // Clear gridContainer but keep searchForm intact
-
-    gridContainer.replaceChildren(searchForm);
-
-    // Clear the grid container before fetching new results
     try {
-      // Send POST request to the server with user query and additional data
       const response = await fetch('http://192.168.10.94:8000/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -91,7 +84,7 @@ export function submitSearchForm (gridContainer) {
 
       // Parse the JSON response
       const data = await response.json();
-
+      gridContainer.innerHTML = '';
       // Render results or display a no-results message
       if (data.results && data.results.length > 0) {
         data.results.forEach((item, i) => {
